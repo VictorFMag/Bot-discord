@@ -2,10 +2,15 @@ import discord
 from discord.ext import commands
 import yt_dlp
 import asyncio
-import random
-import re
+from dice_roller import calculate_dice_expression, roll_with_advantage_or_disadvantage, calculate_initiative
+from dotenv import load_dotenv
+import os
 
-TOKEN = 'SEU_TOKEN_AQUI'
+# Carregar variáveis de ambiente do arquivo .env
+load_dotenv()
+
+# Acessar o token do Discord
+TOKEN =  os.getenv("TOKEN")
 
 # Intents necessários para o bot funcionar corretamente
 intents = discord.Intents.default()
@@ -102,63 +107,44 @@ async def roll(ctx, *, dice_expression: str):
     Exemplo de uso: !roll 1d8 - 3d6 + 5 - 4
     """
     try:
-        # Expressão regular para encontrar padrões do tipo XdY, números fixos e operadores
-        pattern = re.compile(r'(\d+d\d+)|(\d+)|([+-])')
-        matches = pattern.findall(dice_expression)
+        total_result, rolls = calculate_dice_expression(dice_expression)
+        formatted_results = "\n".join(map(str, rolls))
         
-        total = 0
-        results = []
-        current_operator = '+'  # Começa com soma por padrão
-        
-        for match in matches:
-            dice, fixed, operator = match
-            
-            if operator:
-                # Atualiza o operador atual
-                current_operator = operator
-            
-            elif dice:
-                # Processa rolagens de dados
-                amount, sides = map(int, dice.lower().split('d'))
-                
-                # Limita a quantidade e o número de lados para evitar abusos
-                if amount <= 0 or sides <= 0:
-                    await ctx.send("🚫 A quantidade e o número de lados devem ser maiores que zero.")
-                    return
-                if amount > 100:
-                    await ctx.send("🚫 Não posso rolar mais de 100 dados de uma vez!")
-                    return
-                
-                # Rola os dados e armazena os resultados
-                dice_results = [random.randint(1, sides) for _ in range(amount)]
-                sum_dice = sum(dice_results)
-                
-                # Aplica o operador atual
-                if current_operator == '+':
-                    total += sum_dice
-                elif current_operator == '-':
-                    total -= sum_dice
-                
-                results.append(f"**{dice}**: {', '.join(map(str, dice_results))}")
-            
-            elif fixed:
-                # Processa valores fixos
-                value = int(fixed)
-                
-                # Aplica o operador atual
-                if current_operator == '+':
-                    total += value
-                elif current_operator == '-':
-                    total -= value
-                
-                results.append(f"**{fixed}**")
-        
-        # Formata a mensagem com quebras de linha após cada rolagem
-        formatted_results = "\n".join(results)
-        
-        # Mensagem de resposta com os resultados e o total
-        await ctx.send(f"🎲 Rolando **{dice_expression}**:\n{formatted_results}\n(Total: **{total}**)")
+        await ctx.send(f"🎲 Rolando **{dice_expression}**:\n{formatted_results}\n(Total: **{total_result}**)")
 
+    except Exception as e:
+        await ctx.send(f"❗ Ocorreu um erro: {e}.")
+
+@bot.command()
+async def rollv(ctx, *, dice_expression: str):
+    try:
+        results = roll_with_advantage_or_disadvantage(dice_expression, advantage=False)
+        await ctx.send(f"🎲 Rolando **{dice_expression}** com desvantagem:\n(Valor final: **{results.final_result}**)")
+
+    except Exception as e:
+        await ctx.send(f"❗ Ocorreu um erro: {e}.")
+
+@bot.command()
+async def rolld(ctx, *, dice_expression: str):
+    try:
+        results = roll_with_advantage_or_disadvantage(dice_expression, advantage=False)
+        await ctx.send(f"🎲 Rolando **{dice_expression}** com desvantagem:\n(Valor final: **{results.final_result}**)")
+        
+    except Exception as e:
+        await ctx.send(f"❗ Ocorreu um erro: {e}.")
+
+
+@bot.command()
+async def initiative(ctx, *, people_list: str, initiative_dice_expression: str = "1d20"):
+    """
+    Rola várias quantidades de dados de diferentes lados e realiza operações matemáticas.
+    Exemplo de uso: !roll 1d8 - 3d6 + 5 - 4
+    """
+    try:
+        initiatives = calculate_initiative(people_list, initiative_dice_expression)
+        formatted_results = "\n".join([f"{name}: {total_initiative}" for name, total_initiative in initiatives])
+
+        await ctx.send(f"🎲 Iniciativas calculadas:\n{formatted_results}")
     except Exception as e:
         await ctx.send(f"❗ Ocorreu um erro: {e}. Use o formato correto, por exemplo: `!roll 1d8 - 3d6 + 5 - 4`")
 
@@ -168,7 +154,9 @@ async def help(ctx):
     help_text = (
         "**Aqui estão os comandos disponíveis:**\n"
         "\n🔹 **!help** -> Mostra esta lista de comandos."
-        "\n🔹 **!roll XdY** -> Rola X dados de Y lados."
+        "\n🔹 **!roll XdY** -> Rola X dados de Y lados. Também aceita uma expressão, ex.: 3d8 + 3, 5d6 + 6d4..."
+        "\n🔹 **!rollv XdY** -> Rola com vantagem. Também aceita uma expressão, ex.: 3d8 + 3, 5d6 + 6d4..."
+        "\n🔹 **!rolld XdY** -> Rola com desvantagem. Também aceita uma expressão, ex.: 3d8 + 3, 5d6 + 6d4..."
         "\n🔹 **!play <link_do_Youtube>** -> Toco uma música do Youtube."
         "\n🔹 **!stop** -> Paro a música do Youtube."
         "\n🔹 **!loop** -> Ativo/desativo o modo de repetição da música do Youtube."

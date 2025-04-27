@@ -1,0 +1,4 @@
+discord.py==2.5.2
+python-dotenv==0.19.2
+yt-dlp==2025.3.31
+sympy==1.14.0
