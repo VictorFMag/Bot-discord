@@ -33,12 +33,13 @@ python -m venv venv
 
 **Ativar o ambiente virtual:**
 
-No Windows:
+- No Windows:
 
 ```bash
 venv\Scripts\activate
 ```
 
+- No Linux:
 ```bash
 source venv/bin/activate
 ```
